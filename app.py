@@ -4,56 +4,48 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import datetime
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.exc import SQLAlchemyError
-import psycopg2
-import pandas as pd
-import pickle
-import numpy as np
-import os
 import pandas as pd
 import pickle
 import numpy as np
 import os
 from dotenv import load_dotenv
+
+# Load .env variables
 load_dotenv()
 
-
+# Flask app
 app = Flask(__name__, template_folder='.', static_folder='.')
-app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
+app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 CORS(app, origins=['http://localhost:8000', 'http://127.0.0.1:8000'], supports_credentials=True)
 
-# PostgreSQL configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
-
+# SQLAlchemy DB
 db = SQLAlchemy(app)
 
 # User model
 class User(db.Model):
-# User model (table name 'user1')
     __tablename__ = 'user1'
     id = db.Column(db.BigInteger, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
 
-# Create tables if not exist
+# Create tables
 with app.app_context():
     db.create_all()
 
-
-# ML MODEL LOADING
-
+# Load ML model
 try:
     with open('rf2_model.pkl', 'rb') as f:
-        model = pickle.load(f)  # This should be your pipeline from the notebook
+        model = pickle.load(f)
     print("✅ Model loaded successfully!")
-    print(f"Model type: {type(model)}")
 except FileNotFoundError:
-    print("⚠️ Model file not found. Please ensure rf_model.pkl exists.")
+    print("⚠️ Model file not found. Please ensure rf2_model.pkl exists.")
     model = None
 
-# Expected feature columns in the exact order from your training data
+# Expected columns & mappings (use your existing VALUE_MAPPINGS here)
 EXPECTED_COLUMNS = [
     'Age_band_of_driver', 'Sex_of_driver', 'Educational_level',
     'Vehicle_driver_relation', 'Driving_experience', 'Type_of_vehicle',
@@ -62,9 +54,9 @@ EXPECTED_COLUMNS = [
     'Type_of_collision', 'Number_of_vehicles_involved', 'Vehicle_movement',
     'Pedestrian_movement', 'Cause_of_accident'
 ]
-
-# Value mappings to normalize input (frontend -> dataset format)
 VALUE_MAPPINGS = {
+    # ... include all your existing VALUE_MAPPINGS here ...
+
     'Age_band_of_driver': {
         '18-30': '18-30',
         '31-50': '31-50', 
@@ -252,33 +244,19 @@ VALUE_MAPPINGS = {
 SEVERITY_LABELS = {0: 'Fatal injury', 1: 'Serious Injury', 2: 'Slight Injury'}
 
 def normalize_input_value(field_name, input_value):
-    """Normalize input value to match training data format"""
     if input_value is None or input_value == '':
         return 'unknown'
-    
-    # Convert to lowercase for matching
     input_lower = str(input_value).lower().strip()
-    
-    # Get mapping for this field
     field_mapping = VALUE_MAPPINGS.get(field_name, {})
-    
-    # Try exact match first
     for key, value in field_mapping.items():
         if key.lower() == input_lower:
             return value
-    
-    # Try partial match
     for key, value in field_mapping.items():
         if input_lower in key.lower() or key.lower() in input_lower:
             return value
-    
-    print(f"⚠️ No match found for '{input_value}' in {field_name}, using 'unknown'")
     return 'unknown'
 
 def prepare_input_dataframe(form_data):
-    """Prepare input DataFrame in the exact format expected by the model"""
-    
-    # Convert form field names to expected column names
     field_name_mapping = {
         'age_band_of_driver': 'Age_band_of_driver',
         'sex_of_driver': 'Sex_of_driver',
@@ -298,43 +276,20 @@ def prepare_input_dataframe(form_data):
         'pedestrian_movement': 'Pedestrian_movement',
         'cause_of_accident': 'Cause_of_accident'
     }
-    
-    # Prepare the data dictionary
     prepared_data = {}
-    
     for form_field, expected_column in field_name_mapping.items():
         input_value = form_data.get(form_field)
-        normalized_value = normalize_input_value(expected_column, input_value)
-        prepared_data[expected_column] = normalized_value
-        
-        print(f"{form_field} -> {expected_column}: '{input_value}' -> '{normalized_value}'")
-    
-    # Create DataFrame with single row
+        prepared_data[expected_column] = normalize_input_value(expected_column, input_value)
     input_df = pd.DataFrame([prepared_data])
-    
-    # Ensure all expected columns are present in correct order
     for col in EXPECTED_COLUMNS:
         if col not in input_df.columns:
             input_df[col] = 'unknown'
-            print(f"⚠️ Missing column {col}, filled with 'unknown'")
-    
-    # Reorder columns to match training data
     input_df = input_df[EXPECTED_COLUMNS]
-    
-    print(f"📊 Input DataFrame shape: {input_df.shape}")
-    print(f"📊 Input DataFrame columns: {list(input_df.columns)}")
-    print(f"📊 Input DataFrame values: {input_df.iloc[0].to_dict()}")
-    
     return input_df
 
-
-# JWT AUTHENTICATION
-
+# JWT Authentication
 def generate_token(user_id):
-    payload = {
-        'user_id': user_id,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)
-    }
+    payload = {'user_id': user_id, 'exp': datetime.datetime.utcnow() + datetime.timedelta(days=7)}
     return jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
 
 def verify_token(token):
@@ -349,21 +304,16 @@ def require_auth(f):
         token = request.headers.get('Authorization')
         if not token:
             return jsonify({'message': 'No token provided'}), 401
-        
         if token.startswith('Bearer '):
             token = token[7:]
-        
         user_id = verify_token(token)
         if not user_id:
             return jsonify({'message': 'Invalid token'}), 401
-        
         return f(user_id, *args, **kwargs)
     decorated_function.__name__ = f.__name__
     return decorated_function
 
-
-# AUTHENTICATION ROUTES
-
+# Routes
 @app.route('/api/register', methods=['POST'])
 def register():
     try:
@@ -371,28 +321,21 @@ def register():
         name = data.get('name')
         email = data.get('email')
         password = data.get('password')
-
         if not all([name, email, password]):
             return jsonify({'message': 'All fields are required'}), 400
-
-        # Check if user already exists in user1 table
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
             return jsonify({'message': 'User already exists'}), 400
-
         hashed_password = generate_password_hash(password)
         new_user = User(full_name=name, email=email, password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
-
         token = generate_token(new_user.id)
-
         return jsonify({
             'message': 'User created successfully',
             'token': token,
             'user': {'id': new_user.id, 'name': name, 'email': email}
         }), 201
-
     except Exception as exc:
         print(f"Registration error: {exc}")
         return jsonify({'message': 'Registration failed'}), 500
@@ -403,71 +346,38 @@ def login():
         data = request.get_json()
         email = data.get('email')
         password = data.get('password')
-        
         if not all([email, password]):
             return jsonify({'message': 'Email and password are required'}), 400
-        
-        connection = get_db_connection()
-        if not connection:
-            return jsonify({'message': 'Database connection failed'}), 500
-            
-        cursor = connection.cursor()
-        cursor.execute('SELECT id, full_name, email, password FROM user WHERE email = %s', (email,))
-        user = cursor.fetchone()
-        cursor.close()
-        connection.close()
-        
-        if not user or not check_password_hash(user[3], password):
+        user = User.query.filter_by(email=email).first()
+        if not user or not check_password_hash(user.password, password):
             return jsonify({'message': 'Invalid credentials'}), 401
-        
-        token = generate_token(user[0])
-        
+        token = generate_token(user.id)
         return jsonify({
             'message': 'Login successful',
             'token': token,
-            'user': {'id': user[0], 'name': user[1], 'email': user[2]}
+            'user': {'id': user.id, 'name': user.full_name, 'email': user.email}
         }), 200
-        
     except Exception as e:
         print(f"Login error: {e}")
         return jsonify({'message': 'Login failed'}), 500
-
-@app.route('/api/logout', methods=['POST'])
-@require_auth
-def logout(user_id):
-    return jsonify({'message': 'Logged out successfully'}), 200
 
 @app.route('/api/profile', methods=['GET'])
 @require_auth
 def get_profile(user_id):
     try:
-        connection = get_db_connection()
-        if not connection:
-            return jsonify({'message': 'Database connection failed'}), 500
-            
-        cursor = connection.cursor()
-        cursor.execute('SELECT id, full_name, email, created_at FROM user WHERE id = %s', (user_id,))
-        user = cursor.fetchone()
-        cursor.close()
-        connection.close()
-        
+        user = User.query.get(user_id)
         if not user:
             return jsonify({'message': 'User not found'}), 404
-        
         return jsonify({
-            'id': user[0],
-            'name': user[1],
-            'email': user[2],
-            'created_at': user[3]
+            'id': user.id,
+            'name': user.full_name,
+            'email': user.email
         }), 200
-        
     except Exception as e:
         print(f"Profile error: {e}")
         return jsonify({'message': 'Failed to get profile'}), 500
 
-
-# ML PREDICTION ROUTES
-
+# ML prediction routes
 @app.route('/')
 def home():
     return render_template('/index.html')
@@ -485,72 +395,44 @@ def serve_static(filename):
 def predict(user_id):
     if model is None:
         return jsonify({'error': 'Model not loaded'}), 500
-    
     try:
-        if request.is_json:
-            form_data = request.get_json()
-        else:
-            form_data = request.form.to_dict()
-        
-        print(f"📥 Prediction request from user {user_id}")
-        print(f"📥 Received raw data: {form_data}")
-        
-        # Prepare input DataFrame in the correct format
+        form_data = request.get_json() if request.is_json else request.form.to_dict()
         input_df = prepare_input_dataframe(form_data)
-        
-        # Make prediction using the pipeline
-        print("🔮 Making prediction...")
         prediction = model.predict(input_df)[0]
         prediction_proba = model.predict_proba(input_df)[0]
-        
-        print(f"🎯 Raw prediction: {prediction}")
-        print(f"🎯 Prediction probabilities: {prediction_proba}")
-        
-        # Map prediction to severity label
         severity_label = SEVERITY_LABELS.get(prediction, f'Unknown ({prediction})')
-        
-        # Create confidence scores
-        confidence_scores = {}
-        for i, prob in enumerate(prediction_proba):
-            severity_name = SEVERITY_LABELS.get(i, f'Class_{i}')
-            confidence_scores[severity_name] = round(float(prob), 4)
-        
-        print(f"✅ Final prediction for user {user_id}: {severity_label}")
-        print(f"📊 Confidence scores: {confidence_scores}")
-        
+        confidence_scores = {SEVERITY_LABELS.get(i, f'Class_{i}'): round(float(prob),4) 
+                             for i, prob in enumerate(prediction_proba)}
         return jsonify({
             'prediction': severity_label,
             'severity_label': severity_label,
             'confidence': confidence_scores,
             'user_id': user_id
         })
-        
     except Exception as e:
-        print(f"❌ Prediction error: {str(e)}")
         import traceback
-        print(f"❌ Traceback: {traceback.format_exc()}")
+        print(f"Prediction error: {str(e)}")
         return jsonify({
-            'error': str(e), 
+            'error': str(e),
             'traceback': traceback.format_exc(),
-            'message': 'Prediction failed. Please check server logs for details.'
+            'message': 'Prediction failed. Please check server logs.'
         }), 500
 
-
-# HEALTH CHECK
-
+# Health check
 @app.route('/api/health', methods=['GET'])
 def health_check():
+    try:
+        db_test = User.query.limit(1).all()
+        db_connected = True
+    except:
+        db_connected = False
     return jsonify({
         'status': 'healthy',
-        'message': 'Combined API is running',
         'model_loaded': model is not None,
-        'model_type': str(type(model)) if model else None,
-        'database_connected': get_db_connection() is not None
+        'database_connected': db_connected
     }), 200
 
-
-# ERROR HANDLERS
-
+# Error handlers
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'message': 'Endpoint not found'}), 404
@@ -559,12 +441,7 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'message': 'Internal server error'}), 500
 
-
-# RUN APPLICATION
-
+# Run app
 if __name__ == '__main__':
     print("🚀 Combined Authentication & Prediction API starting...")
-    print("📊 Model status:", "✅ Loaded" if model else "❌ Not loaded")
-    if model:
-        print(f"📊 Model type: {type(model)}")
     app.run(debug=True, host='0.0.0.0', port=5000)
