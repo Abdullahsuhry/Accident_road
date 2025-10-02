@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .nav {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .nav a {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .nav a:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Navigation Test</h1>
+    
+    <div class="nav">
+        <a href="index.html">Home</a>
+        <a href="about.html">About Us</a>
+        <a href="contact.html">Contact Us</a>
+        <a href="prediction-form.html">Prediction Form</a>
+    </div>
+    
+    <p>This is a test page to verify navigation is working.</p>
+    <p>Click the links above to test navigation.</p>
+    
+    <script>
+        console.log('Test page loaded');
+        document.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                console.log('Link clicked:', this.href);
+            });
+        });
+    </script>
+</body>
+</html>
+
