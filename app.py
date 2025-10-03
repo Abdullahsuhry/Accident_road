@@ -20,8 +20,7 @@ app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "your-secret-key-change-in-pr
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-CORS(app, origins=['http://localhost:8000', 'http://127.0.0.1:8000'], supports_credentials=True)
-
+CORS(app, origins=['http://localhost:8000', 'http://127.0.0.1:8000', 'https://accident-road-7.onrender.com'], supports_credentials=True)
 # SQLAlchemy DB
 db = SQLAlchemy(app)
 
