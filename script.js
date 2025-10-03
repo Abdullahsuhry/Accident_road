@@ -109,7 +109,7 @@ document.addEventListener('click', (e) => {
 // User Authentication
 async function loginUser(email, password) {
     try {
-        const response = await fetch('http://localhost:5000/api/login', {
+        const response = await fetch('https://accident-road-7.onrender.com/api/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ async function loginUser(email, password) {
 
 async function registerUser(name, email, password) {
     try {
-        const response = await fetch('http://localhost:5000/api/register', {
+       const response = await fetch('https://accident-road-7.onrender.com/api/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -237,7 +237,7 @@ registerForm.addEventListener('submit', (e) => {
 // Logout functionality
 async function logoutUser() {
     try {
-        const response = await fetch('http://localhost:5000/api/logout', {
+        const response = await fetch('https://accident-road-7.onrender.com/api/logout', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
