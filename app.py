@@ -8,6 +8,7 @@ import pandas as pd
 import pickle
 import numpy as np
 import os
+import joblib
 from dotenv import load_dotenv
 
 # Load .env variables
@@ -38,8 +39,8 @@ with app.app_context():
 
 # Load ML model
 try:
-    with open('rf2_model.pkl', 'rb') as f:
-        model = pickle.load(f)
+    with open('rf2_model.joblib', 'rb') as f:
+        model = joblib.load(f)
     print("✅ Model loaded successfully!")
 except FileNotFoundError:
     print("⚠️ Model file not found. Please ensure rf2_model.pkl exists.")
