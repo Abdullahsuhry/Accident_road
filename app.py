@@ -442,7 +442,7 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'message': 'Internal server error'}), 500
 
-# Run app
 if __name__ == '__main__':
     print("🚀 Combined Authentication & Prediction API starting...")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
