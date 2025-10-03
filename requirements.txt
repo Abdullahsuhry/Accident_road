@@ -1,10 +1,20 @@
-Flask
-Flask-Cors
-Flask-SQLAlchemy
-psycopg2-binary
-python-dotenv
-Werkzeug
-scikit-learn==1.2.2
-pandas==1.5.3
+# Core web framework
+Flask==2.3.2
+Flask-Cors==3.0.10
+python-dotenv==1.0.0
+
+# Database
+SQLAlchemy==2.0.21
+psycopg2-binary==2.9.7   # For PostgreSQL
+
+# Security
+PyJWT==2.8.0
+Werkzeug==2.3.7
+
+# Data & ML
 numpy==1.23.5
-jwt
+pandas==1.5.3
+scikit-learn==1.2.2
+
+# Optional: if you use pickle with sklearn pipelines
+joblib==1.3.2

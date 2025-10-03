@@ -384,7 +384,7 @@ def home():
 
 @app.route('/predict_form')
 def predict_form():
-    return render_template('templates/predict_form.html')
+    return render_template('predict_form.html')
 
 @app.route('/<path:filename>')
 def serve_static(filename):
